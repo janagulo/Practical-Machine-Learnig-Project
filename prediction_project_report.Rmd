@@ -1,0 +1,169 @@
+---
+title: "Predicting the Activity Quality of Weight Lifting Exercises with Random Forest
+"
+author: "J.O. Agullo"
+date: "05/24/2015"
+output: html_document
+---
+## Synopsis
+The activity quality of weight lifting exercises are herein predicted using the random forest algorithm. Secondary data was used in this study. The estimated out of sample error of the prediction model is 0.43%. When the model was run against the test data, it achieved 100% accuracy.
+
+
+## Introduction
+Physical activities are beneficial to us as it prevents diseases related to sedentary life style such as heart disease and obesity. Some of us enroll into gyms to achieve the desired physical fitness.
+
+Gyms have equipment that are used for exercising in specified way. One of such equipment are the barbell lifts.The gyms have instructors that advise their members on how to correctly use such equipment but usually majority of members get it wrong. Wrong use of an equipment can lead to physical injuries to a member. 
+
+One way of monitoring use of an equipment by members is by use of accelerometers. In this project, our goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to predict a class how well a barbell is lifted by the participants. The participants were asked to perform barbell lifts correctly and incorrectly in 5 different ways[1].
+
+## Data processing
+The data used in this project is provided for free in the internet[1]. The training data used in this project are available at: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The training and test data are provided as .csv files. This can be loaded into R using the commands below:
+```{r}
+
+#load the training and testing data into R
+pmlTrain<-read.csv("pml-training.csv")
+pmlTest<-read.csv("pml-testing.csv")
+# get dimensions of the dataset
+dim(pmlTrain) # training
+dim(pmlTest) # testing
+```
+
+
+The training data has 19622 observations and 160 variables. Testing data has the same number of variables and 20 observations. The listing of the variables is given below. The dependent variable is the "classe" variable.
+
+```{r}
+table(pmlTrain$classe)
+```
+
+The classes reflect how participants in the research[1] performed the weight lifting task, Unilateral Dumbbell Biceps Curl, which they were instructed to carry out in five different way.
+
+* Class A: exactly according to the specification, 
+* Class B: throwing the elbows to the front, 
+* Class C: lifting the dumbbell only halfway (Class C), 
+* Class D: lowering the dumbbell only halfway
+* Class E: throwing the hips to the front
+
+Class A is the correct way of executing the exercise while the other classes are the common mistakes[1].
+
+
+### Feature selection
+
+A look at the data shows that it has many variables with totally missing values. 
+
+```{r}
+# A sample check the structure of the data
+str(pmlTrain[,30:35])
+```
+These can be excluded from the prediction dataset because prediction algorithm cannot use them. The first seven column are not required in this project as time series analysis  will not be done. Also, there are variable with several factor levels. These are not friendly to most prediction algorithms and thus, for this project, factor variables were removed from the dataset before prediction. The code below show how these were done.
+
+```{r}
+#remove columns with missing values
+pmlTrain<-pmlTrain[colSums(is.na(pmlTrain))==0]
+# remove the first seven columns
+pmlTrain<-pmlTrain[,-(1:7)]
+#remove columns with factors
+colNames <- c()
+n <- ncol(pmlTrain)-1
+for (i in 1:n) {
+  if (is.factor(pmlTrain[,i])){
+    colNames <- c(colNames,i)
+  }
+}
+
+# final dataset with selected features
+pmlTrain<-pmlTrain[-colNames]
+dim(pmlTrain)
+
+```
+The final number of features left after execution of the above code is 52. The list of these features are given below.
+
+```{r}
+names(pmlTrain)
+
+```
+
+
+## Prediction algorithm
+
+In this project the random forest prediction algorithm was used. The algorithm is an ensemble of decision trees. Random forest is better than single decision trees because it offers a good balance between variance and bias even with the default parameter settings. To use the algorithm in R we need to load the R package, *randoForest*. We also load the *caret* package which has miscellaneous functions for carrying out training and plotting classification and regression models.
+
+```{r}
+# load the random forest package into the R session
+library(randomForest)
+# load caret package
+library(caret)
+```
+## Training the prediction model and cross validation
+
+We us the *train* function of caret package to develop the most appropriate model. We do cross validation using five folds.
+```{r,eval=FALSE}
+# Note this can take a couple of hours running, depending on your computer.
+# To generate this document the model created by the code below was 
+# saved and loaded as needed.
+pmlRFTrained<-train(classe~.,data=pml3,method="rf",
+                trControl=trainControl(method="cv",number=5))
+
+```
+##Results
+```{r,echo=FALSE}
+load("pmlRFTrained.RData")
+
+```
+
+
+The output from the above model is given below. 
+
+```{r}
+pmlRFTrained
+```
+
+
+The print out of the final model used is given below. The number of trees used is 500. The number of variables tried at each node is two. This gives an out of bag error(00B) of 0.43%. OOB is a good estimate of the **out of sample error**. In this case it estimates that given a test data the model will have an accuracy of 99.57%.
+
+```{r}
+# Final model used
+pmlRFTrained$finalModel
+```
+
+A plot of the model is given below. It shows  OOB error and in-class OOB error evolved with increasing number of trees. 
+
+```{r}
+plot(pmlRFTrained$finalModel, main="")
+```
+
+The plot of importance of the final model is given below:
+
+```{r, fig.height=10,fig.width=6}
+varImpPlot(pmlRFTrained$finalModel, main="")
+```
+
+
+## Making prediction with the model on test data
+
+The model was used to make prediction using the provided test data. To do this in R, the code below was used.
+```{r}
+# use final model on the test set
+PredpmlRFTest = predict(pmlRFTrained,newdata=pmlTest)
+```
+The predicted test classes data are given by the code below.
+
+```{r}
+PredpmlRFTest
+```
+The above are 100% accurate.
+
+## Conclusion
+A random forest model has been build to predict the activity quality of weight lifting exercises. The estimated out of sample error is 0.43%. When used on the test data for this project, the model predicted the dependent variable (classe) with 100% accuracy.
+
+##References
+1. Ugulino, W.; Cardador, D.; Vega, K.; Velloso, E.; Milidiu, R.; Fuks, H. Wearable Computing: Accelerometers' Data Classification of Body Postures and Movements. Proceedings of 21st Brazilian Symposium on Artificial Intelligence. Advances in Artificial Intelligence - SBIA 2012. In: Lecture Notes in Computer Science. , pp. 52-61. Curitiba, PR: Springer Berlin / Heidelberg, 2012. ISBN 978-3-642-34458-9. DOI: 10.1007/978-3-642-34459-6_6.
+
+
